@@ -3,7 +3,10 @@ ERLANG_PATH = $(shell erl -eval 'io:format("~s", [lists:concat([code:root_dir(),
 LIBTENSORFLOW_PATH = /usr/local/lib
 CFLAGS += -I$(ERLANG_PATH)
 CFLAGS += -Ic_src
-LDFLAGS += -L$(LIBTENSORFLOW_PATH)
+LDFLAGS += -L$(LIBTENSORFLOW_PATH) -flat_namespace -undefined suppress
+ifeq ($(shell uname -s), Darwin)
+	LDFLAGS += -flat_namespace -undefined suppress
+endif
 LIB_SO_NAME = priv/Tensorflex.so
 CFLAGS += -fPIC
 NIF=c_src/Tensorflex.c
