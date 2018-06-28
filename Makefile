@@ -3,7 +3,7 @@ ERLANG_PATH = $(shell erl -eval 'io:format("~s", [lists:concat([code:root_dir(),
 LIBTENSORFLOW_PATH = /usr/local/lib
 CFLAGS += -I$(ERLANG_PATH)
 CFLAGS += -Ic_src
-LDFLAGS += -L$(LIBTENSORFLOW_PATH) -flat_namespace -undefined suppress
+LDFLAGS += -L$(LIBTENSORFLOW_PATH)
 ifeq ($(shell uname -s), Darwin)
 	LDFLAGS += -flat_namespace -undefined suppress
 endif
