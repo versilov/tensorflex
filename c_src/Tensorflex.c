@@ -501,6 +501,65 @@ static ERL_NIF_TERM float32_tensor(ErlNifEnv *env, int argc, const ERL_NIF_TERM 
   return enif_make_tuple2(env, enif_make_atom(env,"ok"), new_tensor);
 }
 
+static TF_Tensor* get_matrex_tensor(ErlNifEnv *env, ERL_NIF_TERM matrex) {
+  ERL_NIF_TERM type, shape, data;
+  ErlNifBinary data_binary;
+  const ERL_NIF_TERM* shape_tuple;
+  int shape_tuple_size;
+  char type_name[32];
+  TF_DataType data_type;
+  void* tensor_data;
+
+
+  if (!enif_get_map_value(env, matrex, enif_make_atom(env, "data"), &data) ||
+      !enif_get_map_value(env, matrex, enif_make_atom(env, "shape"), &shape) ||
+      !enif_get_map_value(env, matrex, enif_make_atom(env, "type"), &type))
+    return NULL;
+
+  if (!enif_inspect_binary(env, data, &data_binary)) return NULL;
+  if (!enif_get_tuple(env, shape, &shape_tuple_size, &shape_tuple)) return NULL;
+  if (!enif_get_atom(env, type, type_name, 32, ERL_NIF_LATIN1)) return NULL;
+
+  tensor_data = enif_alloc(data_binary.size);
+  memcpy(tensor_data, data_binary.data, data_binary.size);
+
+  int64_t dims[shape_tuple_size];
+  for (int i = 0; i < shape_tuple_size; i++) enif_get_int64(env, shape_tuple[i], (long*)&dims[i]);
+
+  if (strcmp(type_name, "float32") == 0)
+    data_type = TF_FLOAT;
+  else if (strcmp(type_name, "float64") == 0)
+    data_type = TF_DOUBLE;
+  else if (strcmp(type_name, "byte") == 0)
+    data_type = TF_UINT8;
+  else if (strcmp(type_name, "int32") == 0)
+    data_type = TF_INT32;
+  else if (strcmp(type_name, "int64") == 0)
+    data_type = TF_INT64;
+  else 
+    return NULL;
+
+  return TF_NewTensor(
+    data_type, 
+    dims,
+    shape_tuple_size,
+    tensor_data, data_binary.size,
+    tensor_deallocator,
+    0);
+}
+
+static ERL_NIF_TERM tensor_from_matrex(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  TF_Tensor *tensor = get_matrex_tensor(env, argv[0]);
+
+  TF_Tensor **tensor_resource_alloc = enif_alloc_resource(tensor_resource, sizeof(TF_Tensor *));
+  memcpy((void *) tensor_resource_alloc, (void *) &tensor, sizeof(TF_Tensor *));
+  ERL_NIF_TERM new_tensor = enif_make_resource(env, tensor_resource_alloc);
+  enif_release_resource(tensor_resource_alloc);
+
+  return enif_make_tuple2(env, enif_make_atom(env,"ok"), new_tensor);  
+}
+
+
 static ERL_NIF_TERM new_tensor(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) 
 {
   TF_Tensor *tensor;
@@ -650,6 +709,7 @@ static ErlNifFunc nif_funcs[] =
     { "float32_tensor", 1, float32_tensor },
     { "string_tensor", 1, string_tensor },
     { "new_tensor", 3, new_tensor },
+    { "tensor_from_matrex", 1, tensor_from_matrex },
     { "tensor_datatype", 1, tensor_datatype },
     { "float64_tensor_alloc", 1, float64_tensor_alloc },
     { "float32_tensor_alloc", 1, float32_tensor_alloc },
